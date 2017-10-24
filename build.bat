@@ -1,18 +1,17 @@
 ECHO OFF
 
-SET ResultDirectory="_Build"
-SET TempDirectory=".output"
-SET PrivateKey=%1
+SET OutputDirectory="%1
+SET TempDirectory=".temp"
 
-if "%1"=="" SET PrivateKey="..\Files\scl_private.snk"
+if "%1"=="" SET OutputDirectory=".output"
 
-if exist %ResultDirectory% rmdir /S /Q %ResultDirectory%
+if exist %OutputDirectory% rmdir /S /Q %OutputDirectory%
 
 ECHO Building project...
-"%programfiles(x86)%\MSBuild\14.0\Bin\msbuild" "AzureDirectory\AzureDirectory.csproj" /t:Rebuild /p:Configuration=Release;OutputPath=..\\%TempDirectory%;DelaySign=false;AssemblyOriginatorKeyFile=..\\%PrivateKey%
+"%programfiles(x86)%\MSBuild\14.0\Bin\msbuild" "AzureDirectory\AzureDirectory.csproj" /t:Rebuild /p:Configuration=Release;OutputPath=..\\%TempDirectory%
 
-ECHO Copying result to %ResultDirectory%...
-xcopy %TempDirectory%\AzureDirectory.dll %ResultDirectory%\
+ECHO Copying result to %OutputDirectory%...
+xcopy %TempDirectory%\AzureDirectory.dll %OutputDirectory%\
 
 rmdir /S /Q %TempDirectory%
 
