@@ -16,25 +16,22 @@ namespace Lucene.Net.Store.Azure
         private CloudBlobContainer _blobContainer;
         private Directory _cacheDirectory;
 
-
-
-
         /// <summary>
         /// Create an AzureDirectory
         /// </summary>
-        /// <param name="storageAccount">storage account to use</param>
+        /// <param name="blobClient">client of Microsoft Azure Blob storage</param>
         /// <param name="containerName">name of container (folder in blob storage)</param>
         /// <param name="cacheDirectory">local Directory object to use for local cache</param>
         /// <param name="rootFolder">path of the root folder inside the container</param>
         public AzureDirectory(
-            CloudStorageAccount storageAccount,
+            CloudBlobClient blobClient,
             string containerName = null,
             Directory cacheDirectory = null,
             bool compressBlobs = false,
             string rootFolder = null)
         {
-            if (storageAccount == null)
-                throw new ArgumentNullException("storageAccount");
+            if (blobClient == null)
+                throw new ArgumentNullException("blobClient");
 
             if (string.IsNullOrEmpty(containerName))
                 _containerName = "lucene";
@@ -50,8 +47,7 @@ namespace Lucene.Net.Store.Azure
                 _rootFolder = rootFolder + "/";
             }
 
-
-            _blobClient = storageAccount.CreateCloudBlobClient();
+            _blobClient = blobClient;
             _initCacheDirectory(cacheDirectory);
             this.CompressBlobs = compressBlobs;
         }

@@ -20,9 +20,10 @@ namespace AzureDirectoryTests
             var connectionString = Environment.GetEnvironmentVariable("DataConnectionString") ?? "UseDevelopmentStorage=true";
 
             var cloudStorageAccount = CloudStorageAccount.Parse(connectionString);
+            var blobClient = cloudStorageAccount.CreateCloudBlobClient();
 
             // default AzureDirectory stores cache in local temp folder
-            var azureDirectory = new AzureDirectory(cloudStorageAccount, "testcatalog");
+            var azureDirectory = new AzureDirectory(blobClient, "testcatalog");
 
             using (var indexWriter = new IndexWriter(azureDirectory, new StandardAnalyzer(Lucene.Net.Util.Version.LUCENE_30), !IndexReader.IndexExists(azureDirectory), new Lucene.Net.Index.IndexWriter.MaxFieldLength(IndexWriter.DEFAULT_MAX_FIELD_LENGTH)))
             {
@@ -51,7 +52,6 @@ namespace AzureDirectoryTests
             }
 
             // check the container exists, and delete it
-            var blobClient = cloudStorageAccount.CreateCloudBlobClient();
             var container = blobClient.GetContainerReference("testcatalog");
             Assert.IsTrue(container.Exists()); // check the container exists
             container.Delete();
