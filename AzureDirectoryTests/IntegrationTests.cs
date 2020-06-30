@@ -4,7 +4,8 @@ using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store.Azure;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Microsoft.WindowsAzure.Storage;
+using Microsoft.Azure.Storage;
+using Microsoft.Azure.Storage.Blob;
 using System;
 using System.Text;
 
