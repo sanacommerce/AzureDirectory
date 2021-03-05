@@ -1,4 +1,4 @@
-﻿using Microsoft.Azure.Storage.Blob;
+﻿using Azure.Storage.Blobs;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,8 +10,8 @@ namespace Lucene.Net.Store.Azure
     {
         private string _containerName;
         private string _rootFolder;
-        private CloudBlobClient _blobClient;
-        private CloudBlobContainer _blobContainer;
+        private BlobServiceClient _blobClient;
+        private BlobContainerClient _blobContainer;
         private Directory _cacheDirectory;
 
         /// <summary>
@@ -22,7 +22,7 @@ namespace Lucene.Net.Store.Azure
         /// <param name="cacheDirectory">local Directory object to use for local cache</param>
         /// <param name="rootFolder">path of the root folder inside the container</param>
         public AzureDirectory(
-            CloudBlobClient blobClient,
+            BlobServiceClient blobClient,
             string containerName = null,
             Directory cacheDirectory = null,
             bool compressBlobs = false,
@@ -50,7 +50,7 @@ namespace Lucene.Net.Store.Azure
             this.CompressBlobs = compressBlobs;
         }
 
-        public CloudBlobContainer BlobContainer
+        public BlobContainerClient BlobContainer
         {
             get
             {
@@ -111,15 +111,15 @@ namespace Lucene.Net.Store.Azure
 
         public void CreateContainer()
         {
-            _blobContainer = _blobClient.GetContainerReference(_containerName);
+            _blobContainer = _blobClient.GetBlobContainerClient(_containerName);
             _blobContainer.CreateIfNotExists();
         }
 
         /// <summary>Returns an array of strings, one for each file in the directory. </summary>
         public override String[] ListAll()
         {
-            var results = from blob in _blobContainer.ListBlobs(_rootFolder)
-                          select blob.Uri.AbsolutePath.Substring(blob.Uri.AbsolutePath.LastIndexOf('/') + 1);
+            var results = from blob in _blobContainer.GetBlobs(prefix: _rootFolder)
+                          select blob.Name.Substring(blob.Name.LastIndexOf('/') + 1);
             return results.ToArray<string>();
         }
 
@@ -129,7 +129,7 @@ namespace Lucene.Net.Store.Azure
             // this always comes from the server
             try
             {
-                return _blobContainer.GetBlockBlobReference(_rootFolder + name).Exists();
+                return _blobContainer.GetBlobClient(_rootFolder + name).Exists();
             }
             catch (Exception)
             {
@@ -143,9 +143,9 @@ namespace Lucene.Net.Store.Azure
             // this always has to come from the server
             try
             {
-                var blob = _blobContainer.GetBlockBlobReference(_rootFolder + name);
-                blob.FetchAttributes();
-                return blob.Properties.LastModified.Value.UtcDateTime.ToFileTimeUtc();
+                var blob = _blobContainer.GetBlobClient(_rootFolder + name);
+                var properties = blob.GetProperties().Value;
+                return properties.LastModified.UtcDateTime.ToFileTimeUtc();
             }
             catch
             {
@@ -198,7 +198,7 @@ namespace Lucene.Net.Store.Azure
 
             //if we've made it this far then the cache directly file has been successfully removed so now we'll do the master
 
-            var blob = _blobContainer.GetBlockBlobReference(_rootFolder + name);
+            var blob = _blobContainer.GetBlobClient(_rootFolder + name);
             blob.DeleteIfExists();
         }
 
@@ -206,19 +206,19 @@ namespace Lucene.Net.Store.Azure
         /// <summary>Returns the length of a file in the directory. </summary>
         public override long FileLength(String name)
         {
-            var blob = _blobContainer.GetBlockBlobReference(_rootFolder + name);
-            blob.FetchAttributes();
+            var blob = _blobContainer.GetBlobClient(_rootFolder + name);
+            var properties = blob.GetProperties().Value;
 
             // index files may be compressed so the actual length is stored in metatdata
             string blobLegthMetadata;
-            bool hasMetadataValue = blob.Metadata.TryGetValue("CachedLength", out blobLegthMetadata);
+            bool hasMetadataValue = properties.Metadata.TryGetValue("CachedLength", out blobLegthMetadata);
 
             long blobLength;
             if (hasMetadataValue && long.TryParse(blobLegthMetadata, out blobLength))
             {
                 return blobLength;
             }
-            return blob.Properties.Length; // fall back to actual blob size
+            return properties.ContentLength; // fall back to actual blob size
         }
 
         /// <summary>Creates a new, empty file in the directory with the given name.
@@ -226,7 +226,7 @@ namespace Lucene.Net.Store.Azure
         /// </summary>
         public override IndexOutput CreateOutput(System.String name)
         {
-            var blob = _blobContainer.GetBlockBlobReference(_rootFolder + name);
+            var blob = _blobContainer.GetBlobClient(_rootFolder + name);
             return new AzureIndexOutput(this, blob);
         }
 
@@ -235,8 +235,7 @@ namespace Lucene.Net.Store.Azure
         {
             try
             {
-                var blob = _blobContainer.GetBlockBlobReference(_rootFolder + name);
-                blob.FetchAttributes();
+                var blob = _blobContainer.GetBlobClient(_rootFolder + name);
                 return new AzureIndexInput(this, blob);
             }
             catch (Exception err)

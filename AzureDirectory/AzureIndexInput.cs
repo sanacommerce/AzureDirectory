@@ -1,4 +1,4 @@
-﻿using Microsoft.Azure.Storage.Blob;
+﻿using Azure.Storage.Blobs;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -13,8 +13,8 @@ namespace Lucene.Net.Store.Azure
     public class AzureIndexInput : IndexInput
     {
         private AzureDirectory _azureDirectory;
-        private CloudBlobContainer _blobContainer;
-        private ICloudBlob _blob;
+        private BlobContainerClient _blobContainer;
+        private BlobClient _blob;
         private string _name;
 
         private IndexInput _indexInput;
@@ -22,10 +22,9 @@ namespace Lucene.Net.Store.Azure
 
         public Lucene.Net.Store.Directory CacheDirectory { get { return _azureDirectory.CacheDirectory; } }
 
-        public AzureIndexInput(AzureDirectory azuredirectory, ICloudBlob blob)
+        public AzureIndexInput(AzureDirectory azuredirectory, BlobClient blob)
         {
-            _name = blob.Uri.Segments[blob.Uri.Segments.Length - 1];
-
+            _name = blob.Name.Substring(blob.Name.LastIndexOf('/') + 1);
 #if FULLDEBUG
             Debug.WriteLine(String.Format("opening {0} ", _name));
 #endif
@@ -46,16 +45,17 @@ namespace Lucene.Net.Store.Azure
                 }
                 else
                 {
+                    var properties = blob.GetProperties().Value;
                     long cachedLength = CacheDirectory.FileLength(fileName);
                     string blobLengthMetadata;
-                    bool hasMetadataValue = blob.Metadata.TryGetValue("CachedLength", out blobLengthMetadata); 
-                    long blobLength = blob.Properties.Length;
+                    bool hasMetadataValue = properties.Metadata.TryGetValue("CachedLength", out blobLengthMetadata); 
+                    long blobLength = properties.ContentLength;
                     if (hasMetadataValue) long.TryParse(blobLengthMetadata, out blobLength);
 
                     string blobLastModifiedMetadata;
                     long longLastModified = 0;
-                    DateTime blobLastModifiedUTC = blob.Properties.LastModified.Value.UtcDateTime;
-                    if (blob.Metadata.TryGetValue("CachedLastModified", out blobLastModifiedMetadata)) {
+                    DateTime blobLastModifiedUTC = properties.LastModified.UtcDateTime;
+                    if (properties.Metadata.TryGetValue("CachedLastModified", out blobLastModifiedMetadata)) {
                         if (long.TryParse(blobLastModifiedMetadata, out longLastModified))
                             blobLastModifiedUTC = new DateTime(longLastModified).ToUniversalTime();
                     }
@@ -99,7 +99,7 @@ namespace Lucene.Net.Store.Azure
                         using (var fileStream = _azureDirectory.CreateCachedOutputAsStream(fileName))
                         {
                             // get the blob
-                            _blob.DownloadToStream(fileStream);
+                            _blob.DownloadTo(fileStream);
 
                             fileStream.Flush();
                             Debug.WriteLine(string.Format("GET {0} RETREIVED {1} bytes", _name, fileStream.Length));
@@ -132,7 +132,7 @@ namespace Lucene.Net.Store.Azure
             using (var deflatedStream = new MemoryStream())
             {
                 // get the deflated blob
-                _blob.DownloadToStream(deflatedStream);
+                _blob.DownloadTo(deflatedStream);
 
                 Debug.WriteLine(string.Format("GET {0} RETREIVED {1} bytes", _name, deflatedStream.Length));
 

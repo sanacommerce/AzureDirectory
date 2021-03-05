@@ -1,5 +1,6 @@
-﻿using Microsoft.Azure.Storage.Blob;
+﻿using Azure.Storage.Blobs;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -14,14 +15,14 @@ namespace Lucene.Net.Store.Azure
     public class AzureIndexOutput : IndexOutput
     {
         private AzureDirectory _azureDirectory;
-        private CloudBlobContainer _blobContainer;
+        private BlobContainerClient _blobContainer;
         private string _name;
         private IndexOutput _indexOutput;
         private Mutex _fileMutex;
-        private ICloudBlob _blob;
+        private BlobClient _blob;
         public Lucene.Net.Store.Directory CacheDirectory { get { return _azureDirectory.CacheDirectory; } }
 
-        public AzureIndexOutput(AzureDirectory azureDirectory, ICloudBlob blob)
+        public AzureIndexOutput(AzureDirectory azureDirectory, BlobClient blob)
         {
             _fileMutex = BlobMutexManager.GrabMutex(_name); 
             _fileMutex.WaitOne();
@@ -30,7 +31,7 @@ namespace Lucene.Net.Store.Azure
                 _azureDirectory = azureDirectory;
                 _blobContainer = _azureDirectory.BlobContainer;
                 _blob = blob;
-                _name = blob.Uri.Segments[blob.Uri.Segments.Length - 1];
+                _name = blob.Name.Substring(blob.Name.LastIndexOf('/') + 1);
 
                 // create the local cache one we will operate against...
                 _indexOutput = CacheDirectory.CreateOutput(_name);
@@ -74,12 +75,14 @@ namespace Lucene.Net.Store.Azure
                 try
                 {
                     // push the blobStream up to the cloud
-                    _blob.UploadFromStream(blobStream);
+                    _blob.Upload(blobStream);
 
                     // set the metadata with the original index file properties
-                    _blob.Metadata["CachedLength"] = originalLength.ToString();
-                    _blob.Metadata["CachedLastModified"] = CacheDirectory.FileModified(fileName).ToString();
-                    _blob.SetMetadata();
+                    _blob.SetMetadata(new Dictionary<string, string>()
+                    {
+                        { "CachedLength", originalLength.ToString()},
+                        { "CachedLastModified", CacheDirectory.FileModified(fileName).ToString()}
+                    });
 
                     Debug.WriteLine(string.Format("PUT {1} bytes to {0} in cloud", _name, blobStream.Length));
                 }

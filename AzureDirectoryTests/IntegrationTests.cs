@@ -1,11 +1,10 @@
-﻿using Lucene.Net.Analysis.Standard;
+﻿using Azure.Storage.Blobs;
+using Lucene.Net.Analysis.Standard;
 using Lucene.Net.Documents;
 using Lucene.Net.Index;
 using Lucene.Net.Search;
 using Lucene.Net.Store.Azure;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
 using System;
 using System.Text;
 
@@ -17,11 +16,9 @@ namespace AzureDirectoryTests
         [TestMethod]
         public void TestReadAndWrite()
         {
-
             var connectionString = Environment.GetEnvironmentVariable("DataConnectionString") ?? "UseDevelopmentStorage=true";
 
-            var cloudStorageAccount = CloudStorageAccount.Parse(connectionString);
-            var blobClient = cloudStorageAccount.CreateCloudBlobClient();
+            var blobClient = new BlobServiceClient(connectionString);
 
             // default AzureDirectory stores cache in local temp folder
             var azureDirectory = new AzureDirectory(blobClient, "testcatalog");
@@ -53,7 +50,7 @@ namespace AzureDirectoryTests
             }
 
             // check the container exists, and delete it
-            var container = blobClient.GetContainerReference("testcatalog");
+            var container = blobClient.GetBlobContainerClient("testcatalog");
             Assert.IsTrue(container.Exists()); // check the container exists
             container.Delete();
             
